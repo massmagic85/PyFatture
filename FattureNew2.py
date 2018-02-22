@@ -145,12 +145,12 @@ class Ui_FinestraIniziale(object):
     def cambia_banca(self):
         global banca_selezionata
         banca_selezionata = self.comboBoxBanca.currentIndex()+1
-        print(banca_selezionata)
+        #print(banca_selezionata)
         self.CalcolaSaldo()
         self.loadFatture(path)
 
     def loadFatture(self, database):
-        start_timer = time.time()
+        #start_timer = time.time()
 
         global anno_selezionato
         global banca_selezionata
@@ -259,10 +259,10 @@ class Ui_FinestraIniziale(object):
 
         else:
             self.errore()
-        print("LoadFatture --- %s ---" % (time.time() - start_timer))
+        #print("LoadFatture --- %s ---" % (time.time() - start_timer))
 
     def CalcolaSaldo(self):
-        start_timer = time.time()
+        #start_timer = time.time()
         global path
         conn = sqlite3.connect(path)
 
@@ -316,7 +316,7 @@ class Ui_FinestraIniziale(object):
                 ParzialeSaldoMese = SaldoMensile[x-1] + TotaleFattureMese[x]
 
             SaldoMensile.append(ParzialeSaldoMese)
-        print("CalcolaSaldo --- %s ---" % (time.time() - start_timer))
+        #print("CalcolaSaldo --- %s ---" % (time.time() - start_timer))
 
 
     def browseFile(self):
@@ -325,10 +325,6 @@ class Ui_FinestraIniziale(object):
         path = percorso[0]
         self.CalcolaSaldo()
         self.loadFatture(path)
-
-
-    def modifica_onClick(self):
-        print("ok")
 
     def setupUi(self, FinestraIniziale):
 
