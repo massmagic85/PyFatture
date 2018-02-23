@@ -33,7 +33,7 @@ mese_selezionato = str(datetime.datetime.today().strftime('%m'))
 global tabmese
 
 global banca_selezionata
-banca_selezionata = 1
+banca_selezionata = 0
 
 locale.setlocale(locale.LC_ALL, '')
 
@@ -91,10 +91,10 @@ class Ui_FinestraIniziale(object):
                 EC = tabmese.item(row, 1).text()
                 ID = tabmese.item(row, 0).text()
                 if EC == ' ':
-                    queryUp = "UPDATE Fatture SET EstrattoConto=1 WHERE IdFattura=" + ID
+                    queryUp = "UPDATE Documenti SET EstrattoConto=1 WHERE IdDocumento=" + ID
 
                 if  EC == '  ':
-                    queryUp = "UPDATE Fatture SET EstrattoConto=0 WHERE IdFattura=" + ID
+                    queryUp = "UPDATE Documenti SET EstrattoConto=0 WHERE IdDocumento=" + ID
 
                 conn.execute(str(queryUp))
                 conn.commit()
@@ -108,15 +108,16 @@ class Ui_FinestraIniziale(object):
                 Pagato = tabmese.item(row, 11).text()
                 ID = tabmese.item(row, 0).text()
                 if Pagato == 'NO':
-                    queryUp = "UPDATE Fatture SET PagatoRiscosso=1 WHERE IdFattura=" + ID
+                    queryUp = "UPDATE Documenti SET PagatoRiscosso=1 WHERE IdDocumento=" + ID
 
                 if Pagato == 'SI':
-                    queryUp = "UPDATE Fatture SET PagatoRiscosso=0 WHERE IdFattura=" + ID
+                    queryUp = "UPDATE Documenti SET PagatoRiscosso=0 WHERE IdDocumento=" + ID
 
                 conn.execute(str(queryUp))
                 conn.commit()
                 conn.close()
         else:
+            if len(path) != 0:
                 get_DocId(path, tabmese.item(row, 0).text())
                 self.MainWindowEdit = QtWidgets.QMainWindow()
                 self.UiEdit = Ui_MainWindow2()
@@ -124,7 +125,7 @@ class Ui_FinestraIniziale(object):
                 self.MainWindowEdit.show()
 
         self.CalcolaSaldo()
-        self.loadFatture(path)
+        self.loadFatture()
 
     def cellChanged(self, row, col):
         #print("Click on " + str(row) + " " + str(col) + " " + self.tableFebbraio.item(row, 0).text())
@@ -167,11 +168,11 @@ class Ui_FinestraIniziale(object):
 
                 try:
                     if nOP == '':
-                        queryUp = "UPDATE Fatture SET NumOperazione='" + str(nOP) + "' WHERE IdFattura=" + ID
+                        queryUp = "UPDATE Documenti SET NumOperazione='" + str(nOP) + "' WHERE IdDocumento=" + ID
                     else:
                         nOP_int = int(nOP)
                         if nOP_int in range(1, 21):
-                            queryUp = "UPDATE Fatture SET NumOperazione='" + str(nOP) + "' WHERE IdFattura=" + ID
+                            queryUp = "UPDATE Documenti SET NumOperazione='" + str(nOP) + "' WHERE IdDocumento=" + ID
 
                     conn = sqlite3.connect(path)
                     conn.execute(str(queryUp))
@@ -181,13 +182,13 @@ class Ui_FinestraIniziale(object):
                     pass
 
         self.CalcolaSaldo()
-        self.loadFatture(path)
+        self.loadFatture()
 
     def cambia_anno(self):
         global anno_selezionato
         anno_selezionato = self.comboBoxAnno.currentText()
         self.CalcolaSaldo()
-        self.loadFatture(path)
+        self.loadFatture()
 
     def cambia_mese(self):
         global mese_selezionato
@@ -199,23 +200,51 @@ class Ui_FinestraIniziale(object):
             mese_selezionato = str(mese_selezionato)
 
         self.CalcolaSaldo()
-        self.loadFatture(path)
+        self.loadFatture()
 
     def cambia_banca(self):
         global banca_selezionata
-        banca_selezionata = self.comboBoxBanca.currentIndex()+1
-        #print(banca_selezionata)
-        self.CalcolaSaldo()
-        self.loadFatture(path)
 
-    def loadFatture(self, database):
+        x = self.comboBoxBanca.currentIndex()
+        self.comboBoxIdBanca.setCurrentIndex(x)
+
+        banca_selezionata = int(self.comboBoxIdBanca.currentText())
+
+        #self.comboBoxBanca.setCurrentIndex(banca_selezionata-1)
+
+        self.CalcolaSaldo()
+        self.loadFatture()
+
+    def loadBanche(self):
+        global path
+
+        if len(path) != 0:
+            self.comboBoxBanca.blockSignals(1)
+            self.comboBoxBanca.clear()
+            self.comboBoxIdBanca.clear()
+
+            conn = sqlite3.connect(path)
+            query = "SELECT * FROM Banche ORDER BY IdBanca"
+            data_Banche = conn.execute(query)
+
+            for row_number, row_data in enumerate(data_Banche):
+                self.comboBoxBanca.addItem(str(row_data[1]))
+                self.comboBoxIdBanca.addItem(str(row_data[0]))
+
+            conn.close()
+            self.comboBoxBanca.blockSignals(0)
+
+    def loadFatture(self):
         #start_timer = time.time()
 
+
+        global path
         global anno_selezionato
         global banca_selezionata
         global mese_selezionato
         global tabmese
         global SaldoMensile
+
 
         if mese_selezionato == '01':
             tabmese = self.tableGennaio
@@ -242,10 +271,10 @@ class Ui_FinestraIniziale(object):
         if mese_selezionato == '12':
             tabmese = self.tableDicembre
 
-        if len(database) != 0:
-            conn = sqlite3.connect(database)
-            query = "SELECT IdFattura, EstrattoConto, NumOperazione, strftime('%d/%m/%Y',DataDocumento), strftime('%d/%m/%Y',DataBanca), strftime('%d/%m/%Y',DataValuta), TipoDocumento, Fornitore, NumeroDocumento, NumeroAssegno, SpeseIncasso, PagatoRiscosso, Valore " \
-                    "FROM Fatture WHERE IdBanca='" + str(banca_selezionata) + "' AND strftime('%m',DataBanca)='" + str(mese_selezionato) + "' AND strftime('%Y',DataBanca)='" + str(anno_selezionato) + "' ORDER BY date(DataBanca), date(DataValuta), NumOperazione, NumeroDocumento"
+        if len(path) != 0:
+            conn = sqlite3.connect(path)
+            query = "SELECT IdDocumento, EstrattoConto, NumOperazione, strftime('%d/%m/%Y',DataDocumento), strftime('%d/%m/%Y',DataBanca), strftime('%d/%m/%Y',DataValuta), TipoDocumento, Fornitore, NumeroDocumento, NumeroAssegno, SpeseIncasso, PagatoRiscosso, Valore " \
+                    "FROM Documenti WHERE IdBanca='" + str(banca_selezionata) + "' AND strftime('%m',DataBanca)='" + str(mese_selezionato) + "' AND strftime('%Y',DataBanca)='" + str(anno_selezionato) + "' ORDER BY date(DataBanca), date(DataValuta), NumOperazione, NumeroDocumento"
 
             Fatture = conn.execute(query)
             tabmese.blockSignals(1)
@@ -261,8 +290,8 @@ class Ui_FinestraIniziale(object):
                 tabmese.insertRow(row_number)
                 valori = []
                 for column_number, data in enumerate(row_data):
-                    #if not data:
-                     #   data = "-"
+                    if not data:
+                        data = "-"
 
                     valori.append(str(data))
                     Avere = ["Fattura", "Spese", "Fattura con RID", "Riepilogo"]
@@ -318,6 +347,10 @@ class Ui_FinestraIniziale(object):
             conn.close()
             tabmese.blockSignals(0)
 
+
+            print('caricato')
+
+
         else:
             self.errore()
         #print("LoadFatture --- %s ---" % (time.time() - start_timer))
@@ -349,7 +382,7 @@ class Ui_FinestraIniziale(object):
                 else:
                     mod_mese = mese
 
-                query_TotaleFattureMese.append("SELECT TipoDocumento, PagatoRiscosso, Valore FROM Fatture WHERE IdBanca='" + str(banca_selezionata) + "' AND strftime('%m',DataBanca)='" + str(mod_mese) + "' AND strftime('%Y',DataBanca)='" + str(anno_selezionato) + "' ORDER BY date(DataBanca), date(DataValuta), NumOperazione, NumeroDocumento")
+                query_TotaleFattureMese.append("SELECT TipoDocumento, PagatoRiscosso, Valore FROM Documenti WHERE IdBanca='" + str(banca_selezionata) + "' AND strftime('%m',DataBanca)='" + str(mod_mese) + "' AND strftime('%Y',DataBanca)='" + str(anno_selezionato) + "' ORDER BY date(DataBanca), date(DataValuta), NumOperazione, NumeroDocumento")
 
                 data_TotaleFattureMese = conn.execute(str(query_TotaleFattureMese[mese - 1]))
 
@@ -394,8 +427,9 @@ class Ui_FinestraIniziale(object):
         path = percorso[0]
 
         if percorso[0]:
+            self.loadBanche()
             self.CalcolaSaldo()
-            self.loadFatture(path)
+            self.loadFatture()
         else:
             return None
 
@@ -408,11 +442,12 @@ class Ui_FinestraIniziale(object):
 
         desc_colonne = ["ID", "EC", "nOP", "Data", "Data Banca", "Data Valuta", "Tipologia", "Fornitore", "Numero Documento",
                         'Assegno', "Spese", "Pagato", "Dare", "Avere", "Saldo"]
-        width_colonne = [30, 30, 30, 90, 90, 90, 100, 173, 160, 100, 50, 50, 90, 90, 90]
+        width_colonne = [0, 30, 30, 90, 90, 90, 100, 173, 160, 100, 50, 50, 90, 90, 90]
 
         FinestraIniziale.setObjectName("FinestraIniziale")
         FinestraIniziale.setMinimumSize(QtCore.QSize(1280, 720))
         FinestraIniziale.setMaximumSize(QtCore.QSize(1280, 720))
+        FinestraIniziale.setWindowIcon(QtGui.QIcon('ico/croceverde.png'))
         FinestraIniziale.setToolButtonStyle(QtCore.Qt.ToolButtonFollowStyle)
         self.centralwidget = QtWidgets.QWidget(FinestraIniziale)
         self.centralwidget.setObjectName("centralwidget")
@@ -606,12 +641,11 @@ class Ui_FinestraIniziale(object):
         self.comboBoxBanca.setGeometry(QtCore.QRect(1050, 10, 200, 22))
         self.comboBoxBanca.setObjectName("comboBoxBanca")
         self.comboBoxBanca.addItem("")
-        self.comboBoxBanca.addItem("")
-        self.comboBoxBanca.addItem("")
-        self.comboBoxBanca.addItem("")
-        self.comboBoxBanca.addItem("")
-        self.comboBoxBanca.addItem("")
 
+        self.comboBoxIdBanca = QtWidgets.QComboBox(self.centralwidget)
+        self.comboBoxIdBanca.setGeometry(QtCore.QRect(1255, 10, 22, 22))
+        self.comboBoxIdBanca.setVisible(0)
+        self.comboBoxIdBanca.setObjectName("comboBoxIdBanca")
 
         self.labelSaldoIniziale = QtWidgets.QLabel(self.centralwidget)
         self.labelSaldoIniziale.setGeometry(QtCore.QRect(560, 660, 171, 21))
@@ -637,7 +671,7 @@ class Ui_FinestraIniziale(object):
         self.btnUpdate.setIcon(icon)
         self.btnUpdate.setIconSize(QtCore.QSize(25, 25))
         self.btnUpdate.setObjectName("btnUpdate")
-        self.btnUpdate.clicked.connect(lambda: self.CalcolaSaldo())
+        self.btnUpdate.clicked.connect(lambda: self.loadFatture())
 
         self.valoreSaldoIniziale = QtWidgets.QLabel(self.centralwidget)
         self.valoreSaldoIniziale.setGeometry(QtCore.QRect(750, 660, 151, 21))
@@ -697,7 +731,7 @@ class Ui_FinestraIniziale(object):
 
         self.actionAggiorna = QtWidgets.QAction(FinestraIniziale)
         self.actionAggiorna.setObjectName("actionAggiorna")
-        self.actionAggiorna.triggered.connect(lambda: self.loadFatture(path))
+        self.actionAggiorna.triggered.connect(lambda: self.loadFatture())
 
         self.actionEsci = QtWidgets.QAction(FinestraIniziale)
         self.actionEsci.setObjectName("actionEsci")
@@ -795,6 +829,7 @@ class Ui_FinestraIniziale(object):
 
         QtCore.QMetaObject.connectSlotsByName(FinestraIniziale)
 
+
     def retranslateUi(self, FinestraIniziale):
         _translate = QtCore.QCoreApplication.translate
         FinestraIniziale.setWindowTitle(_translate("FinestraIniziale", "Fatture Farmacia Santoro"))
@@ -815,16 +850,16 @@ class Ui_FinestraIniziale(object):
         self.comboBoxAnno.setItemText(2, _translate("FinestraIniziale", "2019"))
         self.comboBoxAnno.setItemText(3, _translate("FinestraIniziale", "2020"))
         self.comboBoxAnno.setItemText(4, _translate("FinestraIniziale", "2021"))
-        self.comboBoxBanca.setItemText(0, _translate("FinestraIniziale", "Banca1"))
-        self.comboBoxBanca.setItemText(1, _translate("FinestraIniziale", "Banca2"))
-        self.comboBoxBanca.setItemText(2, _translate("FinestraIniziale", "Banca3"))
-        self.comboBoxBanca.setItemText(3, _translate("FinestraIniziale", "Banca4"))
-        self.comboBoxBanca.setItemText(4, _translate("FinestraIniziale", "Banca5"))
-        self.comboBoxBanca.setItemText(5, _translate("FinestraIniziale", "Banca6"))
+        self.comboBoxBanca.setItemText(0, _translate("FinestraIniziale", "Banca"))
+        #self.comboBoxBanca.setItemText(1, _translate("FinestraIniziale", "Banca2"))
+        #self.comboBoxBanca.setItemText(2, _translate("FinestraIniziale", "Banca3"))
+        #self.comboBoxBanca.setItemText(3, _translate("FinestraIniziale", "Banca4"))
+        #self.comboBoxBanca.setItemText(4, _translate("FinestraIniziale", "Banca5"))
+        #self.comboBoxBanca.setItemText(5, _translate("FinestraIniziale", "Banca6"))
         self.labelSaldoIniziale.setText(_translate("FinestraIniziale", "Saldo Inizio Mese:"))
         self.labelSaldoFinale.setText(_translate("FinestraIniziale", "Saldo Fine Mese:"))
-        self.valoreSaldoIniziale.setText(_translate("FinestraIniziale", "0 €"))
-        self.valoreSaldoFinale.setText(_translate("FinestraIniziale", "0 €"))
+        self.valoreSaldoIniziale.setText(_translate("FinestraIniziale", "0,0 €"))
+        self.valoreSaldoFinale.setText(_translate("FinestraIniziale", "0,0 €"))
         self.menuFile.setTitle(_translate("FinestraIniziale", "File"))
         self.menuAggiungi.setTitle(_translate("FinestraIniziale", "Aggiungi"))
         self.menuStatistiche.setTitle(_translate("FinestraIniziale", "Statistiche"))
@@ -848,5 +883,6 @@ if __name__ == "__main__":
     ui = Ui_FinestraIniziale()
     ui.setupUi(FinestraIniziale)
     FinestraIniziale.show()
+
     sys.exit(app.exec_())
 

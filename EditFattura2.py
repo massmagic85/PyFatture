@@ -35,9 +35,9 @@ class Ui_MainWindow2(object):
             database = path
         # if len(database) != 0:
             conn = sqlite3.connect(database)
-            query = "SELECT IdFattura, EstrattoConto, NumOperazione, DataDocumento, DataBanca, DataValuta, TipoDocumento, Fornitore, NumeroDocumento, NumeroAssegno, SpeseIncasso, PagatoRiscosso, Valore " \
-                    "FROM Fatture WHERE IdFattura=" + id
-            print(query)
+            query = "SELECT IdDocumento, EstrattoConto, NumOperazione, DataDocumento, DataBanca, DataValuta, TipoDocumento, Fornitore, NumeroDocumento, NumeroAssegno, SpeseIncasso, PagatoRiscosso, Valore " \
+                    "FROM Documenti WHERE IdDocumento=" + id
+
             Fattura = conn.execute(query)
 
             for row_number, row_data in enumerate(Fattura):
@@ -220,13 +220,4 @@ class Ui_MainWindow2(object):
         self.label_Valuta.setText(_translate("MainWindow2", "Valore EUR"))
 
 
-if __name__ == "__main__":
-    import sys
-    app2 = QtWidgets.QApplication(sys.argv)
-    MainWindow2 = QtWidgets.QMainWindow()
-    ui2 = Ui_MainWindow2()
-    ui2.setupUi(MainWindow2)
-    MainWindow2.show()
-
-    sys.exit(app2.exec_())
 
