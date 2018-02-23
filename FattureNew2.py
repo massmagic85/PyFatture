@@ -12,6 +12,7 @@ import sqlite3
 import datetime
 import time
 import locale
+import os
 from decimal import Decimal
 #from babel.numbers import format_currency
 from EditFattura2 import Ui_MainWindow2 , get_DocId
@@ -40,6 +41,7 @@ class Ui_FinestraIniziale(object):
 
     def errore(self):
         msg = QMessageBox()
+        msg.setWindowTitle('Errore Database')
         msg.setIcon(QMessageBox.Critical)
         msg.setText("Il Database non è stato caricato")
         msg.setStandardButtons(QMessageBox.Ok)
@@ -91,14 +93,14 @@ class Ui_FinestraIniziale(object):
                 if EC == ' ':
                     queryUp = "UPDATE Fatture SET EstrattoConto=1 WHERE IdFattura=" + ID
 
-
                 if  EC == '  ':
                     queryUp = "UPDATE Fatture SET EstrattoConto=0 WHERE IdFattura=" + ID
-
 
                 conn.execute(str(queryUp))
                 conn.commit()
                 conn.close()
+        elif col == 2:
+            return None
 
         elif col == 11:
             if len(path) != 0:
@@ -120,6 +122,63 @@ class Ui_FinestraIniziale(object):
                 self.UiEdit = Ui_MainWindow2()
                 self.UiEdit.setupUi(self.MainWindowEdit)
                 self.MainWindowEdit.show()
+
+        self.CalcolaSaldo()
+        self.loadFatture(path)
+
+    def cellChanged(self, row, col):
+        #print("Click on " + str(row) + " " + str(col) + " " + self.tableFebbraio.item(row, 0).text())
+
+        global path
+        global mese_selezionato
+        global tabmese
+        global doc_id
+
+        if mese_selezionato == '01':
+            tabmese = self.tableGennaio
+        if mese_selezionato == '02':
+            tabmese = self.tableFebbraio
+        if mese_selezionato == '03':
+            tabmese = self.tableMarzo
+        if mese_selezionato == '04':
+            tabmese = self.tableAprile
+        if mese_selezionato == '05':
+            tabmese = self.tableMaggio
+        if mese_selezionato == '06':
+            tabmese = self.tableGiugno
+        if mese_selezionato == '07':
+            tabmese = self.tableLuglio
+        if mese_selezionato == '08':
+            tabmese = self.tableAgosto
+        if mese_selezionato == '09':
+            tabmese = self.tableSettembre
+        if mese_selezionato == '10':
+            tabmese = self.tableOttobre
+        if mese_selezionato == '11':
+            tabmese = self.tableNovembre
+        if mese_selezionato == '12':
+            tabmese = self.tableDicembre
+
+        if col == 2:
+            if len(path) != 0:
+
+                ID = tabmese.item(row, 0).text()
+                nOP = tabmese.item(row, 2).text()
+
+                try:
+                    if nOP == '':
+                        queryUp = "UPDATE Fatture SET NumOperazione='" + str(nOP) + "' WHERE IdFattura=" + ID
+                    else:
+                        nOP_int = int(nOP)
+                        if nOP_int in range(1, 21):
+                            queryUp = "UPDATE Fatture SET NumOperazione='" + str(nOP) + "' WHERE IdFattura=" + ID
+
+                    conn = sqlite3.connect(path)
+                    conn.execute(str(queryUp))
+                    conn.commit()
+                    conn.close()
+                except:
+                    pass
 
         self.CalcolaSaldo()
         self.loadFatture(path)
@@ -189,6 +248,7 @@ class Ui_FinestraIniziale(object):
                     "FROM Fatture WHERE IdBanca='" + str(banca_selezionata) + "' AND strftime('%m',DataBanca)='" + str(mese_selezionato) + "' AND strftime('%Y',DataBanca)='" + str(anno_selezionato) + "' ORDER BY date(DataBanca), date(DataValuta), NumOperazione, NumeroDocumento"
 
             Fatture = conn.execute(query)
+            tabmese.blockSignals(1)
             tabmese.setRowCount(0)
 
             if mese_selezionato == '01':
@@ -201,8 +261,8 @@ class Ui_FinestraIniziale(object):
                 tabmese.insertRow(row_number)
                 valori = []
                 for column_number, data in enumerate(row_data):
-                    if not data:
-                        data = "-"
+                    #if not data:
+                     #   data = "-"
 
                     valori.append(str(data))
                     Avere = ["Fattura", "Spese", "Fattura con RID", "Riepilogo"]
@@ -256,6 +316,7 @@ class Ui_FinestraIniziale(object):
                 self.valoreSaldoFinale.setText(str(self.euro(SaldoMensile[int(mese_selezionato)])))
 
             conn.close()
+            tabmese.blockSignals(0)
 
         else:
             self.errore()
@@ -264,67 +325,79 @@ class Ui_FinestraIniziale(object):
     def CalcolaSaldo(self):
         #start_timer = time.time()
         global path
-        conn = sqlite3.connect(path)
 
-        global SaldoMensile
+        if len(path) != 0:
 
-        TotaleFattureMese = []
-        TotaleFattureMese.append(Decimal(500000))
+            conn = sqlite3.connect(path)
 
-        query_TotaleFattureMese = []
-        mesi = range(1, 13)
-        avere = ["Fattura", "Spese", str('Fattura con RID'), "Riepilogo"]
-        dare = ["Nota Credito", "Accredito","Fattura Emessa"]
+            global SaldoMensile
 
-        for mese in mesi:
+            TotaleFattureMese = []
+            TotaleFattureMese.append(Decimal(500000))
 
-            ParzialeFattureMese = Decimal(0)
+            query_TotaleFattureMese = []
+            mesi = range(1, 13)
+            avere = ["Fattura", "Spese", str('Fattura con RID'), "Riepilogo"]
+            dare = ["Nota Credito", "Accredito","Fattura Emessa"]
 
-            if len(str(mese)) == 1:
-                mod_mese = '0' + str(mese)
-            else:
-                mod_mese = mese
+            for mese in mesi:
 
-            query_TotaleFattureMese.append("SELECT TipoDocumento, PagatoRiscosso, Valore FROM Fatture WHERE IdBanca='" + str(banca_selezionata) + "' AND strftime('%m',DataBanca)='" + str(mod_mese) + "' AND strftime('%Y',DataBanca)='" + str(anno_selezionato) + "' ORDER BY date(DataBanca), date(DataValuta), NumOperazione, NumeroDocumento")
+                ParzialeFattureMese = Decimal(0)
 
-            data_TotaleFattureMese = conn.execute(str(query_TotaleFattureMese[mese - 1]))
-
-            for riga_number, riga_dati in enumerate(data_TotaleFattureMese):
-                if riga_dati:
-                    if str(riga_dati[0]) in avere:  # 6 = TipoDocumento
-                        if riga_dati[1] == 1:  # 11 = PagatoRiscosso
-                            ParzialeFattureMese = ParzialeFattureMese - Decimal(riga_dati[2].replace(',', "."))
-
-                    elif riga_dati[0] in dare:
-                        if riga_dati[1] == 1:
-                            ParzialeFattureMese = ParzialeFattureMese + Decimal(riga_dati[2].replace(',', "."))
+                if len(str(mese)) == 1:
+                    mod_mese = '0' + str(mese)
                 else:
-                    ParzialeFattureMese = TotaleFattureMese[mese - 1]
+                    mod_mese = mese
 
-            TotaleFattureMese.append(ParzialeFattureMese)
-        conn.close()
+                query_TotaleFattureMese.append("SELECT TipoDocumento, PagatoRiscosso, Valore FROM Fatture WHERE IdBanca='" + str(banca_selezionata) + "' AND strftime('%m',DataBanca)='" + str(mod_mese) + "' AND strftime('%Y',DataBanca)='" + str(anno_selezionato) + "' ORDER BY date(DataBanca), date(DataValuta), NumOperazione, NumeroDocumento")
 
-        SaldoMensile = []
+                data_TotaleFattureMese = conn.execute(str(query_TotaleFattureMese[mese - 1]))
 
-        mesi = range(0, 13)
-        for x in mesi:
-            ParzialeSaldoMese = 0
+                for riga_number, riga_dati in enumerate(data_TotaleFattureMese):
+                    if riga_dati:
+                        if str(riga_dati[0]) in avere:  # 6 = TipoDocumento
+                            if riga_dati[1] == 1:  # 11 = PagatoRiscosso
+                                ParzialeFattureMese = ParzialeFattureMese - Decimal(riga_dati[2].replace(',', "."))
 
-            if x == 0:
-                ParzialeSaldoMese = TotaleFattureMese[x]
-            else:
-                ParzialeSaldoMese = SaldoMensile[x-1] + TotaleFattureMese[x]
+                        elif riga_dati[0] in dare:
+                            if riga_dati[1] == 1:
+                                ParzialeFattureMese = ParzialeFattureMese + Decimal(riga_dati[2].replace(',', "."))
+                    else:
+                        ParzialeFattureMese = TotaleFattureMese[mese - 1]
 
-            SaldoMensile.append(ParzialeSaldoMese)
+                TotaleFattureMese.append(ParzialeFattureMese)
+            conn.close()
+
+            SaldoMensile = []
+
+            mesi = range(0, 13)
+            for x in mesi:
+                ParzialeSaldoMese = 0
+
+                if x == 0:
+                    ParzialeSaldoMese = TotaleFattureMese[x]
+                else:
+                    ParzialeSaldoMese = SaldoMensile[x-1] + TotaleFattureMese[x]
+
+                SaldoMensile.append(ParzialeSaldoMese)
+        else:
+            return None
         #print("CalcolaSaldo --- %s ---" % (time.time() - start_timer))
 
 
     def browseFile(self):
         global path
-        percorso = QFileDialog.getOpenFileName()
+
+        sfoglia = QFileDialog()
+        filter = "Database(*.db)"
+        percorso = QFileDialog.getOpenFileName(sfoglia, 'Apri Database', '', filter)
         path = percorso[0]
-        self.CalcolaSaldo()
-        self.loadFatture(path)
+
+        if percorso[0]:
+            self.CalcolaSaldo()
+            self.loadFatture(path)
+        else:
+            return None
 
     def setupUi(self, FinestraIniziale):
 
@@ -335,7 +408,7 @@ class Ui_FinestraIniziale(object):
 
         desc_colonne = ["ID", "EC", "nOP", "Data", "Data Banca", "Data Valuta", "Tipologia", "Fornitore", "Numero Documento",
                         'Assegno', "Spese", "Pagato", "Dare", "Avere", "Saldo"]
-        width_colonne = [0, 30, 30, 90, 90, 90, 100, 173, 160, 100, 50, 50, 90, 90, 90]
+        width_colonne = [30, 30, 30, 90, 90, 90, 100, 173, 160, 100, 50, 50, 90, 90, 90]
 
         FinestraIniziale.setObjectName("FinestraIniziale")
         FinestraIniziale.setMinimumSize(QtCore.QSize(1280, 720))
@@ -624,9 +697,11 @@ class Ui_FinestraIniziale(object):
 
         self.actionAggiorna = QtWidgets.QAction(FinestraIniziale)
         self.actionAggiorna.setObjectName("actionAggiorna")
+        self.actionAggiorna.triggered.connect(lambda: self.loadFatture(path))
 
         self.actionEsci = QtWidgets.QAction(FinestraIniziale)
         self.actionEsci.setObjectName("actionEsci")
+        self.actionEsci.triggered.connect(lambda: sys.exit())
 
         self.menuFile.addAction(self.actionApri_Database)
         self.menuFile.addAction(self.actionAggiorna)
@@ -690,17 +765,29 @@ class Ui_FinestraIniziale(object):
         self.comboBoxAnno.setCurrentIndex(1)
 
         self.tableGennaio.cellDoubleClicked.connect(self.cellClick)
+        self.tableGennaio.cellChanged.connect(self.cellChanged)
         self.tableFebbraio.cellDoubleClicked.connect(self.cellClick)
+        self.tableFebbraio.cellChanged.connect(self.cellChanged)
         self.tableMarzo.cellDoubleClicked.connect(self.cellClick)
+        self.tableMarzo.cellChanged.connect(self.cellChanged)
         self.tableAprile.cellDoubleClicked.connect(self.cellClick)
+        self.tableAprile.cellChanged.connect(self.cellChanged)
         self.tableMaggio.cellDoubleClicked.connect(self.cellClick)
+        self.tableMaggio.cellChanged.connect(self.cellChanged)
         self.tableGiugno.cellDoubleClicked.connect(self.cellClick)
+        self.tableGiugno.cellChanged.connect(self.cellChanged)
         self.tableLuglio.cellDoubleClicked.connect(self.cellClick)
+        self.tableLuglio.cellChanged.connect(self.cellChanged)
         self.tableAgosto.cellDoubleClicked.connect(self.cellClick)
+        self.tableAgosto.cellChanged.connect(self.cellChanged)
         self.tableSettembre.cellDoubleClicked.connect(self.cellClick)
+        self.tableSettembre.cellChanged.connect(self.cellChanged)
         self.tableOttobre.cellDoubleClicked.connect(self.cellClick)
+        self.tableOttobre.cellChanged.connect(self.cellChanged)
         self.tableNovembre.cellDoubleClicked.connect(self.cellClick)
+        self.tableNovembre.cellChanged.connect(self.cellChanged)
         self.tableDicembre.cellDoubleClicked.connect(self.cellClick)
+        self.tableDicembre.cellChanged.connect(self.cellChanged)
 
         self.comboBoxAnno.currentIndexChanged.connect(lambda: self.cambia_anno())
 
