@@ -168,6 +168,7 @@ class Ui_FinestraIniziale(object):
 
                 try:
                     if nOP == '':
+                        nOP = 0
                         queryUp = "UPDATE Documenti SET NumOperazione='" + str(nOP) + "' WHERE IdDocumento=" + ID
                     else:
                         nOP_int = int(nOP)
@@ -273,12 +274,16 @@ class Ui_FinestraIniziale(object):
 
         if len(path) != 0:
             conn = sqlite3.connect(path)
-            query = "SELECT IdDocumento, EstrattoConto, NumOperazione, strftime('%d/%m/%Y',DataDocumento), strftime('%d/%m/%Y',DataBanca), strftime('%d/%m/%Y',DataValuta), TipoDocumento, Fornitore, NumeroDocumento, NumeroAssegno, SpeseIncasso, PagatoRiscosso, Valore " \
-                    "FROM Documenti WHERE IdBanca='" + str(banca_selezionata) + "' AND strftime('%m',DataBanca)='" + str(mese_selezionato) + "' AND strftime('%Y',DataBanca)='" + str(anno_selezionato) + "' ORDER BY date(DataBanca), date(DataValuta), NumOperazione, NumeroDocumento"
+            query = "SELECT IdDocumento, EstrattoConto, NumOperazione, strftime('%d/%m/%Y',DataDocumento), strftime('%d/%m/%Y',DataBanca), strftime('%d/%m/%Y',DataValuta), TipoDocumento, NomeFornitore, NumeroDocumento, NumeroAssegno, SpeseIncasso, PagatoRiscosso, Valore FROM Documenti " \
+                    "INNER JOIN Fornitori ON Fornitori.IdFornitore = Documenti.IdFornitore " \
+                    "WHERE IdBanca='" + str(banca_selezionata) + "' AND strftime('%m',DataBanca)='" + str(mese_selezionato) + "' AND strftime('%Y',DataBanca)='" + str(anno_selezionato) + "' " \
+                    "ORDER BY date(DataBanca), date(DataValuta), NumOperazione, NumeroDocumento"
+
 
             Fatture = conn.execute(query)
             tabmese.blockSignals(1)
             tabmese.setRowCount(0)
+            tabmese.setSortingEnabled(0)
 
             if mese_selezionato == '01':
                 saldo = SaldoMensile[0]
@@ -294,8 +299,8 @@ class Ui_FinestraIniziale(object):
                         data = "-"
 
                     valori.append(str(data))
-                    Avere = ["Fattura", "Spese", "Fattura con RID", "Riepilogo"]
-                    Dare =["Nota Credito","Accredito","Fattura Emessa"]
+                    avere = ["Fattura", "Spese", "Fattura con RID", "Riepilogo", "Riepilogo con RID"]
+                    dare =["Nota Credito","Accredito","Fattura Emessa"]
 
                     if column_number == 10:  # 10 = SpeseIncasso
                         if valori[10] != '-':
@@ -305,19 +310,26 @@ class Ui_FinestraIniziale(object):
                                             QtWidgets.QTableWidgetItem(str(data)))
 
                     elif column_number == 12:  # 12 = Avere
-                        if valori[6] in Avere:  # 6 = TipoDocumento
+                        if valori[6] in avere:  # 6 = TipoDocumento
                             column_number = 13  # 13 = Dare
                             tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(self.euro(data))))
+                            tabmese.item(row_number, column_number).setForeground(QtGui.QColor('red'))
                             if valori[11] == '1':  # 11 = PagatoRiscosso
                                 saldo = saldo - Decimal(data.replace(',',"."))
 
                             tabmese.setItem(row_number, column_number + 1, QtWidgets.QTableWidgetItem(str(self.euro(saldo))))
-                        if valori[6] in Dare:
+                            if saldo < 0:
+                                tabmese.item(row_number, column_number + 1).setForeground(QtGui.QColor('red'))
+
+
+                        if valori[6] in dare:
                             tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(self.euro(data))))
                             if valori[11] == '1':
                                 saldo = saldo + Decimal(data.replace(',',"."))
 
                             tabmese.setItem(row_number, column_number + 2, QtWidgets.QTableWidgetItem(str(self.euro(saldo))))
+                            if saldo < 0:
+                                tabmese.item(row_number, column_number + 2).setForeground(QtGui.QColor('red'))
                     else:
                         tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(data)))
 
@@ -337,6 +349,8 @@ class Ui_FinestraIniziale(object):
 
 
             if mese_selezionato == '01':
+
+                #self.valoreSaldoIniziale.setStyleSheet('color: red')
                 self.valoreSaldoIniziale.setText(str(self.euro(SaldoMensile[0])))
                 self.valoreSaldoFinale.setText(str(self.euro(SaldoMensile[int(mese_selezionato)])))
 
@@ -346,6 +360,7 @@ class Ui_FinestraIniziale(object):
 
             conn.close()
             tabmese.blockSignals(0)
+            tabmese.setSortingEnabled(1)
 
 
             print('caricato')
@@ -370,7 +385,7 @@ class Ui_FinestraIniziale(object):
 
             query_TotaleFattureMese = []
             mesi = range(1, 13)
-            avere = ["Fattura", "Spese", str('Fattura con RID'), "Riepilogo"]
+            avere = ["Fattura", "Spese", str('Fattura con RID'), "Riepilogo", "Riepilogo con RID"]
             dare = ["Nota Credito", "Accredito","Fattura Emessa"]
 
             for mese in mesi:
@@ -469,6 +484,7 @@ class Ui_FinestraIniziale(object):
         self.tableGennaio.setColumnCount(ncolonne)
         self.tableGennaio.setRowCount(nrighe)
         self.tableGennaio.setHorizontalHeaderLabels(desc_colonne)
+        self.tableGennaio.setSortingEnabled(1)
         self.TabMesi.addTab(self.tabGennaio, "")
 
         self.tabFebbraio = QtWidgets.QWidget()
@@ -483,6 +499,7 @@ class Ui_FinestraIniziale(object):
         self.tableFebbraio.setColumnCount(ncolonne)
         self.tableFebbraio.setRowCount(nrighe)
         self.tableFebbraio.setHorizontalHeaderLabels(desc_colonne)
+        self.tableFebbraio.setSortingEnabled(1)
         self.TabMesi.addTab(self.tabFebbraio, "")
 
         self.tabMarzo = QtWidgets.QWidget()
@@ -851,11 +868,6 @@ class Ui_FinestraIniziale(object):
         self.comboBoxAnno.setItemText(3, _translate("FinestraIniziale", "2020"))
         self.comboBoxAnno.setItemText(4, _translate("FinestraIniziale", "2021"))
         self.comboBoxBanca.setItemText(0, _translate("FinestraIniziale", "Banca"))
-        #self.comboBoxBanca.setItemText(1, _translate("FinestraIniziale", "Banca2"))
-        #self.comboBoxBanca.setItemText(2, _translate("FinestraIniziale", "Banca3"))
-        #self.comboBoxBanca.setItemText(3, _translate("FinestraIniziale", "Banca4"))
-        #self.comboBoxBanca.setItemText(4, _translate("FinestraIniziale", "Banca5"))
-        #self.comboBoxBanca.setItemText(5, _translate("FinestraIniziale", "Banca6"))
         self.labelSaldoIniziale.setText(_translate("FinestraIniziale", "Saldo Inizio Mese:"))
         self.labelSaldoFinale.setText(_translate("FinestraIniziale", "Saldo Fine Mese:"))
         self.valoreSaldoIniziale.setText(_translate("FinestraIniziale", "0,0 €"))

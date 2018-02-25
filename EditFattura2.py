@@ -35,7 +35,7 @@ class Ui_MainWindow2(object):
             database = path
         # if len(database) != 0:
             conn = sqlite3.connect(database)
-            query = "SELECT IdDocumento, EstrattoConto, NumOperazione, DataDocumento, DataBanca, DataValuta, TipoDocumento, Fornitore, NumeroDocumento, NumeroAssegno, SpeseIncasso, PagatoRiscosso, Valore " \
+            query = "SELECT IdDocumento, EstrattoConto, NumOperazione, DataDocumento, DataBanca, DataValuta, TipoDocumento, IdFornitore, NumeroDocumento, NumeroAssegno, SpeseIncasso, PagatoRiscosso, Valore " \
                     "FROM Documenti WHERE IdDocumento=" + id
 
             Fattura = conn.execute(query)
