@@ -15,7 +15,7 @@ import locale
 import os
 from decimal import Decimal
 #from babel.numbers import format_currency
-from EditFattura2 import Ui_MainWindow2 , get_DocId
+from EditFattura2 import Ui_MainWindow2, get_DocId
 
 global path
 path = ''
@@ -48,8 +48,10 @@ class Ui_FinestraIniziale(object):
         msg.exec_()
 
     def euro(self, valore):
-        #conv = format_currency(valore, 'EUR', locale='it_IT')
-        conv = '{0:n}'.format(Decimal(str(valore).replace(',',"."))) + " €"
+        #conv = format_currency(str(valore).replace(',',"."), 'EUR', locale='it_IT')
+        #conv = '{0:n}'.format(Decimal(str(valore).replace(',',"."),)) + " €"
+        conv = locale.currency(Decimal(str(valore).replace(',',".")), grouping=1)
+
         return conv
 
     def cellClick(self, row, col):
@@ -294,7 +296,9 @@ class Ui_FinestraIniziale(object):
             for row_number, row_data in enumerate(Fatture):
                 tabmese.insertRow(row_number)
                 valori = []
+                sfondo = ''
                 for column_number, data in enumerate(row_data):
+
                     if not data:
                         data = "-"
 
@@ -302,36 +306,39 @@ class Ui_FinestraIniziale(object):
                     avere = ["Fattura", "Spese", "Fattura con RID", "Riepilogo", "Riepilogo con RID"]
                     dare =["Nota Credito","Accredito","Fattura Emessa"]
 
+                    #### POPOLAMENTO GRIGLIA ####
+
                     if column_number == 10:  # 10 = SpeseIncasso
                         if valori[10] != '-':
                             tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(self.euro(data))))
                         else:
-                            tabmese.setItem(row_number, column_number,
-                                            QtWidgets.QTableWidgetItem(str(data)))
+                            tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(data)))
 
-                    elif column_number == 12:  # 12 = Avere
+                    elif column_number == 12:  # 12 = Dare
+
                         if valori[6] in avere:  # 6 = TipoDocumento
-                            column_number = 13  # 13 = Dare
+                            column_number = 13  # 13 = Avere
                             tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(self.euro(data))))
-                            tabmese.item(row_number, column_number).setForeground(QtGui.QColor('red'))
+
                             if valori[11] == '1':  # 11 = PagatoRiscosso
                                 saldo = saldo - Decimal(data.replace(',',"."))
 
                             tabmese.setItem(row_number, column_number + 1, QtWidgets.QTableWidgetItem(str(self.euro(saldo))))
-                            if saldo < 0:
-                                tabmese.item(row_number, column_number + 1).setForeground(QtGui.QColor('red'))
+                            tabmese.setItem(row_number, column_number + 2, QtWidgets.QTableWidgetItem(str('')))
 
 
                         if valori[6] in dare:
                             tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(self.euro(data))))
+
                             if valori[11] == '1':
                                 saldo = saldo + Decimal(data.replace(',',"."))
-
+                            tabmese.setItem(row_number, column_number + 1, QtWidgets.QTableWidgetItem(str('')))
                             tabmese.setItem(row_number, column_number + 2, QtWidgets.QTableWidgetItem(str(self.euro(saldo))))
-                            if saldo < 0:
-                                tabmese.item(row_number, column_number + 2).setForeground(QtGui.QColor('red'))
+
                     else:
                         tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(data)))
+
+                    #### FORMATTAZIONE CELLE ####
 
                     if column_number == 1:  # 1 = EstrattoConto
                         if valori[column_number] == '1':
@@ -341,16 +348,49 @@ class Ui_FinestraIniziale(object):
                            tabmese.item(row_number, column_number).setBackground(QtGui.QColor("white"))
                            tabmese.item(row_number, column_number).setText(' ')  #SINGOLO SPAZIO
 
-                    if column_number == 11:  # 11 = PagatoRiscosso
+                    elif column_number == 2:
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignCenter)
+
+                    elif column_number == 7:
+                        if valori[column_number] == 'CEF':
+                            sfondo = QtGui.QColor("gray")
+
+                    elif column_number == 9:
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignCenter)
+
+                    elif column_number == 10:
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignCenter)
+
+                    elif column_number == 11:  # 11 = PagatoRiscosso
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignCenter)
                         if valori[column_number] == '1':
                             tabmese.item(row_number, column_number).setText('SI')
                         else:
                             tabmese.item(row_number, column_number).setText('NO')
 
+                    elif column_number == 12:
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignRight)
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignVCenter)
+
+                    elif column_number == 13:
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignRight)
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignVCenter)
+                        tabmese.item(row_number, column_number).setForeground(QtGui.QColor('red'))
+
+                tabmese.item(row_number, 14).setTextAlignment(QtCore.Qt.AlignRight)
+                tabmese.item(row_number, 14).setTextAlignment(QtCore.Qt.AlignVCenter)
+
+                if saldo < 0:
+                    tabmese.item(row_number, 14).setForeground(QtGui.QColor('red'))
+
+                if sfondo != '':
+                    righe = range (2,15)
+                    for x in righe:
+                        tabmese.item(row_number, x).setBackground(sfondo)
+
 
             if mese_selezionato == '01':
 
-                #self.valoreSaldoIniziale.setStyleSheet('color: red')
                 self.valoreSaldoIniziale.setText(str(self.euro(SaldoMensile[0])))
                 self.valoreSaldoFinale.setText(str(self.euro(SaldoMensile[int(mese_selezionato)])))
 
@@ -363,7 +403,7 @@ class Ui_FinestraIniziale(object):
             tabmese.setSortingEnabled(1)
 
 
-            print('caricato')
+            #print('caricato')
 
 
         else:
@@ -719,6 +759,9 @@ class Ui_FinestraIniziale(object):
         self.menuStatistiche = QtWidgets.QMenu(self.menubar)
         self.menuStatistiche.setObjectName("menuStatistiche")
 
+        self.menuRicerca = QtWidgets.QMenu(self.menubar)
+        self.menuRicerca.setObjectName("menuRicerca")
+
         FinestraIniziale.setMenuBar(self.menubar)
 
         self.actionApri_Database = QtWidgets.QAction(FinestraIniziale)
@@ -754,6 +797,10 @@ class Ui_FinestraIniziale(object):
         self.actionEsci.setObjectName("actionEsci")
         self.actionEsci.triggered.connect(lambda: sys.exit())
 
+        self.actionFind = QtWidgets.QAction(FinestraIniziale)
+        self.actionFind.setObjectName("actionFind")
+        self.actionFind.triggered.connect(lambda: sys.exit())
+
         self.menuFile.addAction(self.actionApri_Database)
         self.menuFile.addAction(self.actionAggiorna)
         self.menuFile.addAction(self.actionEsci)
@@ -766,9 +813,12 @@ class Ui_FinestraIniziale(object):
         self.menuStatistiche.addAction(self.actionPer_Anno)
         self.menuStatistiche.addAction(self.actionPer_Mese)
 
+        self.menuRicerca.addAction(self.actionFind)
+
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuAggiungi.menuAction())
         self.menubar.addAction(self.menuStatistiche.menuAction())
+        self.menubar.addAction(self.menuRicerca.menuAction())
 
         for larghezze in range(len(width_colonne)):
             self.tableGennaio.setColumnWidth(larghezze, width_colonne[larghezze])
@@ -875,6 +925,7 @@ class Ui_FinestraIniziale(object):
         self.menuFile.setTitle(_translate("FinestraIniziale", "File"))
         self.menuAggiungi.setTitle(_translate("FinestraIniziale", "Aggiungi"))
         self.menuStatistiche.setTitle(_translate("FinestraIniziale", "Statistiche"))
+        self.menuRicerca.setTitle(_translate("FinestraIniziale", "Ricerca"))
         self.actionApri_Database.setText(_translate("FinestraIniziale", "Apri Database"))
         self.actionAggiungi_Documenti.setText(_translate("FinestraIniziale", "Aggiungi Documenti"))
         self.actionDocumenti.setText(_translate("FinestraIniziale", "Documenti"))
@@ -885,6 +936,7 @@ class Ui_FinestraIniziale(object):
         self.actionPer_Mese.setText(_translate("FinestraIniziale", "Per Mese"))
         self.actionAggiorna.setText(_translate("FinestraIniziale", "Aggiorna"))
         self.actionEsci.setText(_translate("FinestraIniziale", "Esci"))
+        self.actionFind.setText(_translate("FinestraIniziale", "Trova"))
 
 
 if __name__ == "__main__":
