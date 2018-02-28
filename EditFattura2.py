@@ -76,6 +76,7 @@ class Ui_MainWindow2(object):
         MainWindow2.resize(340, 445)
         MainWindow2.setMinimumSize(QtCore.QSize(340, 445))
         MainWindow2.setMaximumSize(QtCore.QSize(340, 445))
+        MainWindow2.setWindowIcon(QtGui.QIcon('ico/edit.png'))
 
         font = QtGui.QFont()
         font.setFamily("MS Shell Dlg 2")

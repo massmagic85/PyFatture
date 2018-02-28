@@ -7,7 +7,8 @@
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QApplication, QWidget, QInputDialog, QLineEdit, QFileDialog, QMessageBox, QTableWidgetItem
+from PyQt5.QtWidgets import QApplication, QWidget, QInputDialog, QLineEdit, QFileDialog, QMessageBox, QTableWidgetItem, QToolTip
+from PyQt5.QtGui import QFont, QBrush
 import sqlite3
 import datetime
 import time
@@ -16,6 +17,7 @@ import os
 from decimal import Decimal
 #from babel.numbers import format_currency
 from EditFattura2 import Ui_MainWindow2, get_DocId
+from SetEvidenziatore2 import Ui_MainWindow3
 
 global path
 path = ''
@@ -23,6 +25,8 @@ path = ''
 global SaldoMensile
 SaldoMensile = []
 
+global lstEvidenz
+lstEvidenz =[]
 
 global anno_selezionato
 anno_selezionato = str(datetime.datetime.today().strftime('%Y'))
@@ -35,7 +39,9 @@ global tabmese
 global banca_selezionata
 banca_selezionata = 0
 
-locale.setlocale(locale.LC_ALL, '')
+locale.setlocale(locale.LC_ALL, 'Italian_Italy.1252')
+#print(locale.setlocale(locale.LC_ALL, ''))
+
 
 class Ui_FinestraIniziale(object):
 
@@ -60,7 +66,7 @@ class Ui_FinestraIniziale(object):
         global path
         global mese_selezionato
         global tabmese
-        global doc_id
+        #global doc_id
 
         if mese_selezionato == '01':
             tabmese = self.tableGennaio
@@ -121,10 +127,7 @@ class Ui_FinestraIniziale(object):
         else:
             if len(path) != 0:
                 get_DocId(path, tabmese.item(row, 0).text())
-                self.MainWindowEdit = QtWidgets.QMainWindow()
-                self.UiEdit = Ui_MainWindow2()
-                self.UiEdit.setupUi(self.MainWindowEdit)
-                self.MainWindowEdit.show()
+                self.apriEditDoc()
 
         self.CalcolaSaldo()
         self.loadFatture()
@@ -218,6 +221,23 @@ class Ui_FinestraIniziale(object):
         self.CalcolaSaldo()
         self.loadFatture()
 
+    def loadEvidenz(self):
+        global path
+        global lstEvidenz
+
+        lstEvidenz.clear()
+
+        if len(path) != 0:
+
+            conn = sqlite3.connect(path)
+            query = "SELECT * FROM Evidenziatori WHERE isEnable=1 ORDER BY IdEvidenz"
+            data_Evidenz = conn.execute(query)
+
+            for row_number, row_data in enumerate(data_Evidenz):
+                print(row_data)
+                lstEvidenz.append(row_data)
+            conn.close()
+
     def loadBanche(self):
         global path
 
@@ -237,9 +257,21 @@ class Ui_FinestraIniziale(object):
             conn.close()
             self.comboBoxBanca.blockSignals(0)
 
+    def apriEditEvidenz(self):
+        self.MainWindowEdit3 = QtWidgets.QMainWindow()
+        self.UiEdit3 = Ui_MainWindow3()
+        self.UiEdit3.setupUi(self.MainWindowEdit3)
+        self.MainWindowEdit3.show()
+
+
+    def apriEditDoc(self):
+        self.MainWindowEdit2 = QtWidgets.QMainWindow()
+        self.UiEdit2 = Ui_MainWindow2()
+        self.UiEdit2.setupUi(self.MainWindowEdit2)
+        self.MainWindowEdit2.show()
+
     def loadFatture(self):
         #start_timer = time.time()
-
 
         global path
         global anno_selezionato
@@ -247,7 +279,7 @@ class Ui_FinestraIniziale(object):
         global mese_selezionato
         global tabmese
         global SaldoMensile
-
+        global lstEvidenz
 
         if mese_selezionato == '01':
             tabmese = self.tableGennaio
@@ -276,11 +308,10 @@ class Ui_FinestraIniziale(object):
 
         if len(path) != 0:
             conn = sqlite3.connect(path)
-            query = "SELECT IdDocumento, EstrattoConto, NumOperazione, strftime('%d/%m/%Y',DataDocumento), strftime('%d/%m/%Y',DataBanca), strftime('%d/%m/%Y',DataValuta), TipoDocumento, NomeFornitore, NumeroDocumento, NumeroAssegno, SpeseIncasso, PagatoRiscosso, Valore FROM Documenti " \
+            query = "SELECT IdDocumento, EstrattoConto, NumOperazione, strftime('%d/%m/%Y',DataDocumento), strftime('%d/%m/%Y',DataBanca), strftime('%d/%m/%Y',DataValuta), TipoDocumento, NomeFornitore, NumeroDocumento, Note, NumeroAssegno, SpeseIncasso, PagatoRiscosso, Valore FROM Documenti " \
                     "INNER JOIN Fornitori ON Fornitori.IdFornitore = Documenti.IdFornitore " \
                     "WHERE IdBanca='" + str(banca_selezionata) + "' AND strftime('%m',DataBanca)='" + str(mese_selezionato) + "' AND strftime('%Y',DataBanca)='" + str(anno_selezionato) + "' " \
                     "ORDER BY date(DataBanca), date(DataValuta), NumOperazione, NumeroDocumento"
-
 
             Fatture = conn.execute(query)
             tabmese.blockSignals(1)
@@ -297,6 +328,7 @@ class Ui_FinestraIniziale(object):
                 tabmese.insertRow(row_number)
                 valori = []
                 sfondo = ''
+                testo = ''
                 for column_number, data in enumerate(row_data):
 
                     if not data:
@@ -308,35 +340,43 @@ class Ui_FinestraIniziale(object):
 
                     #### POPOLAMENTO GRIGLIA ####
 
-                    if column_number == 10:  # 10 = SpeseIncasso
-                        if valori[10] != '-':
+                    if column_number == 9:
+                    #    if (str(valori[9]).strip() != "-") and (str(valori[9]).strip() != ""):
+                    #        QToolTip.setFont(QFont('Arial', 10))
+                    #        tabmese.item(row_number, 9).setToolTip(str(valori[9]))
+                        tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str('')))
+
+                    elif column_number == 11:  # 10 = SpeseIncasso
+                        if valori[11] != '-':
                             tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(self.euro(data))))
                         else:
                             tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(data)))
 
-                    elif column_number == 12:  # 12 = Dare
+                    elif column_number == 13:  # 12 = Dare
 
                         if valori[6] in avere:  # 6 = TipoDocumento
-                            column_number = 13  # 13 = Avere
+                            tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str('')))
+                            column_number = 14  # 13 = Avere
                             tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(self.euro(data))))
 
-                            if valori[11] == '1':  # 11 = PagatoRiscosso
+                            if valori[12] == '1':  # 11 = PagatoRiscosso
                                 saldo = saldo - Decimal(data.replace(',',"."))
 
                             tabmese.setItem(row_number, column_number + 1, QtWidgets.QTableWidgetItem(str(self.euro(saldo))))
-                            tabmese.setItem(row_number, column_number + 2, QtWidgets.QTableWidgetItem(str('')))
+                            #tabmese.setItem(row_number, column_number + 2, QtWidgets.QTableWidgetItem(str('')))
 
 
                         if valori[6] in dare:
                             tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(self.euro(data))))
 
-                            if valori[11] == '1':
+                            if valori[12] == '1':
                                 saldo = saldo + Decimal(data.replace(',',"."))
                             tabmese.setItem(row_number, column_number + 1, QtWidgets.QTableWidgetItem(str('')))
                             tabmese.setItem(row_number, column_number + 2, QtWidgets.QTableWidgetItem(str(self.euro(saldo))))
 
                     else:
                         tabmese.setItem(row_number, column_number, QtWidgets.QTableWidgetItem(str(data)))
+
 
                     #### FORMATTAZIONE CELLE ####
 
@@ -345,48 +385,94 @@ class Ui_FinestraIniziale(object):
                             tabmese.item(row_number, column_number).setBackground(QtGui.QColor("red"))
                             tabmese.item(row_number, column_number).setText('  ')  #DOPPIO SPAZIO
                         else:
-                           tabmese.item(row_number, column_number).setBackground(QtGui.QColor("white"))
+                           tabmese.item(row_number, column_number).setBackground(QtGui.QBrush(QtGui.QColor(255, 255, 255, 0))) #QtGui.QColor("white"))
                            tabmese.item(row_number, column_number).setText(' ')  #SINGOLO SPAZIO
 
                     elif column_number == 2:
                         tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignCenter)
 
                     elif column_number == 7:
-                        if valori[column_number] == 'CEF':
-                            sfondo = QtGui.QColor("gray")
+                        x=0
+                        while x < (len(lstEvidenz)):
+                            if str(lstEvidenz[x][2]) == str(0):
+                                if str(lstEvidenz[x][1]).strip() != '':
+                                    if valori[column_number] == str(lstEvidenz[x][1]):
+                                        if lstEvidenz[x][4]:
+                                            sfondo = QtGui.QColor(str(lstEvidenz[x][4]))
+
+                                        if lstEvidenz[x][3]:
+                                            testo = QtGui.QColor(str(lstEvidenz[x][3]))
+                            x=x+1
+
+                    elif column_number == 8:
+                        y=0
+                        while y < (len(lstEvidenz)):
+                            if str(lstEvidenz[y][2]) == str(1):
+                                stp = str(lstEvidenz[y][1]).strip()
+                                if  stp != '':
+                                    if stp in str(valori[column_number]):
+                                        if lstEvidenz[y][4]:
+                                            sfondo = QtGui.QColor(str(lstEvidenz[y][4]))
+
+                                        if lstEvidenz[y][3]:
+                                            testo = QtGui.QColor(str(lstEvidenz[y][3]))
+                            y=y+1
+                        if (str(row_data[9]) != '') and (str(row_data[9]) != str(None)):
+                            font = QtGui.QFont()
+                            font.setBold(1)
+                            tabmese.item(row_number, column_number).setFont(font)
+                            #print(str(row_data[13]))
 
                     elif column_number == 9:
-                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignCenter)
+                        if (str(valori[9]).strip() != "-") and (str(valori[9]).strip() != ""):
+                           QToolTip.setFont(QFont('Arial', 10))
+                           tabmese.item(row_number, 8).setToolTip(str(valori[9]))
+                           tabmese.item(row_number, column_number).setBackground(QtGui.QColor('red'))
+
 
                     elif column_number == 10:
                         tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignCenter)
 
-                    elif column_number == 11:  # 11 = PagatoRiscosso
+                    elif column_number == 11:
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignCenter)
+
+                    elif column_number == 12:  # 11 = PagatoRiscosso
                         tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignCenter)
                         if valori[column_number] == '1':
                             tabmese.item(row_number, column_number).setText('SI')
                         else:
                             tabmese.item(row_number, column_number).setText('NO')
 
-                    elif column_number == 12:
-                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignRight)
-                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignVCenter)
-
                     elif column_number == 13:
-                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignRight)
-                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignVCenter)
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+                    elif column_number == 14:
+                        tabmese.item(row_number, column_number).setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
                         tabmese.item(row_number, column_number).setForeground(QtGui.QColor('red'))
 
-                tabmese.item(row_number, 14).setTextAlignment(QtCore.Qt.AlignRight)
-                tabmese.item(row_number, 14).setTextAlignment(QtCore.Qt.AlignVCenter)
+                tabmese.item(row_number, 15).setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
 
                 if saldo < 0:
-                    tabmese.item(row_number, 14).setForeground(QtGui.QColor('red'))
+                    tabmese.item(row_number, 15).setForeground(QtGui.QColor('red'))
 
                 if sfondo != '':
-                    righe = range (2,15)
+                    righe = range(1,16)
                     for x in righe:
-                        tabmese.item(row_number, x).setBackground(sfondo)
+
+                        if (x == 9) or (x == 1):
+                            if valori[x] == '-':
+                                tabmese.item(row_number, x).setBackground(sfondo)
+                            else:
+                                None
+                        else:
+                            tabmese.item(row_number, x).setBackground(sfondo)
+
+
+
+                if testo != '':
+                    righe = range(1,13)
+                    for x in righe:
+                        tabmese.item(row_number, x).setForeground(testo)
 
 
             if mese_selezionato == '01':
@@ -402,10 +488,6 @@ class Ui_FinestraIniziale(object):
             tabmese.blockSignals(0)
             tabmese.setSortingEnabled(1)
 
-
-            #print('caricato')
-
-
         else:
             self.errore()
         #print("LoadFatture --- %s ---" % (time.time() - start_timer))
@@ -420,8 +502,8 @@ class Ui_FinestraIniziale(object):
 
             global SaldoMensile
 
-            TotaleFattureMese = []
-            TotaleFattureMese.append(Decimal(500000))
+            TotaleFattureMese = [Decimal(500000)]
+            #TotaleFattureMese.append()
 
             query_TotaleFattureMese = []
             mesi = range(1, 13)
@@ -479,30 +561,37 @@ class Ui_FinestraIniziale(object):
         sfoglia = QFileDialog()
         filter = "Database(*.db)"
         percorso = QFileDialog.getOpenFileName(sfoglia, 'Apri Database', '', filter)
-        path = percorso[0]
 
         if percorso[0]:
-            self.loadBanche()
-            self.CalcolaSaldo()
-            self.loadFatture()
+            path = percorso[0]
+            self.update()
+
         else:
             return None
 
+    def update(self):
+        self.loadBanche()
+        self.CalcolaSaldo()
+        self.loadEvidenz()
+        self.loadFatture()
+
     def setupUi(self, FinestraIniziale):
+
 
         global tabmese
 
-        ncolonne = 15
+        ncolonne = 16
         nrighe = 40
 
-        desc_colonne = ["ID", "EC", "nOP", "Data", "Data Banca", "Data Valuta", "Tipologia", "Fornitore", "Numero Documento",
+        desc_colonne = ["ID", "EC", "nOP", "Data", "Data Banca", "Data Valuta", "Tipologia", "Fornitore", "Numero Documento", "",
                         'Assegno', "Spese", "Pagato", "Dare", "Avere", "Saldo"]
-        width_colonne = [0, 30, 30, 90, 90, 90, 100, 173, 160, 100, 50, 50, 90, 90, 90]
+        width_colonne = [0, 30, 30, 90, 90, 90, 100, 170, 160, 4, 100, 50, 50, 90, 90, 90]
 
         FinestraIniziale.setObjectName("FinestraIniziale")
         FinestraIniziale.setMinimumSize(QtCore.QSize(1280, 720))
         FinestraIniziale.setMaximumSize(QtCore.QSize(1280, 720))
         FinestraIniziale.setWindowIcon(QtGui.QIcon('ico/croceverde.png'))
+
         FinestraIniziale.setToolButtonStyle(QtCore.Qt.ToolButtonFollowStyle)
         self.centralwidget = QtWidgets.QWidget(FinestraIniziale)
         self.centralwidget.setObjectName("centralwidget")
@@ -514,7 +603,7 @@ class Ui_FinestraIniziale(object):
         self.tabGennaio = QtWidgets.QWidget()
         self.tabGennaio.setObjectName("tabGennaio")
         self.tableGennaio = QtWidgets.QTableWidget(self.tabGennaio)
-        self.tableGennaio.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableGennaio.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableGennaio.setToolTipDuration(3)
         self.tableGennaio.setMidLineWidth(2)
         self.tableGennaio.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -530,7 +619,7 @@ class Ui_FinestraIniziale(object):
         self.tabFebbraio = QtWidgets.QWidget()
         self.tabFebbraio.setObjectName("tabFebbraio")
         self.tableFebbraio = QtWidgets.QTableWidget(self.tabFebbraio)
-        self.tableFebbraio.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableFebbraio.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableFebbraio.setToolTipDuration(3)
         self.tableFebbraio.setMidLineWidth(2)
         self.tableFebbraio.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -545,7 +634,7 @@ class Ui_FinestraIniziale(object):
         self.tabMarzo = QtWidgets.QWidget()
         self.tabMarzo.setObjectName("tabMarzo")
         self.tableMarzo = QtWidgets.QTableWidget(self.tabMarzo)
-        self.tableMarzo.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableMarzo.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableMarzo.setToolTipDuration(3)
         self.tableMarzo.setMidLineWidth(2)
         self.tableMarzo.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -559,7 +648,7 @@ class Ui_FinestraIniziale(object):
         self.tabAprile = QtWidgets.QWidget()
         self.tabAprile.setObjectName("tabAprile")
         self.tableAprile = QtWidgets.QTableWidget(self.tabAprile)
-        self.tableAprile.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableAprile.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableAprile.setToolTipDuration(3)
         self.tableAprile.setMidLineWidth(2)
         self.tableAprile.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -573,7 +662,7 @@ class Ui_FinestraIniziale(object):
         self.tabMaggio = QtWidgets.QWidget()
         self.tabMaggio.setObjectName("tabMaggio")
         self.tableMaggio = QtWidgets.QTableWidget(self.tabMaggio)
-        self.tableMaggio.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableMaggio.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableMaggio.setToolTipDuration(3)
         self.tableMaggio.setMidLineWidth(2)
         self.tableMaggio.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -587,7 +676,7 @@ class Ui_FinestraIniziale(object):
         self.tabGiugno = QtWidgets.QWidget()
         self.tabGiugno.setObjectName("tabGiugno")
         self.tableGiugno = QtWidgets.QTableWidget(self.tabGiugno)
-        self.tableGiugno.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableGiugno.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableGiugno.setToolTipDuration(3)
         self.tableGiugno.setMidLineWidth(2)
         self.tableGiugno.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -601,7 +690,7 @@ class Ui_FinestraIniziale(object):
         self.tabLuglio = QtWidgets.QWidget()
         self.tabLuglio.setObjectName("tabLuglio")
         self.tableLuglio = QtWidgets.QTableWidget(self.tabLuglio)
-        self.tableLuglio.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableLuglio.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableLuglio.setToolTipDuration(3)
         self.tableLuglio.setMidLineWidth(2)
         self.tableLuglio.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -615,7 +704,7 @@ class Ui_FinestraIniziale(object):
         self.tabAgosto = QtWidgets.QWidget()
         self.tabAgosto.setObjectName("tabAgosto")
         self.tableAgosto = QtWidgets.QTableWidget(self.tabAgosto)
-        self.tableAgosto.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableAgosto.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableAgosto.setToolTipDuration(3)
         self.tableAgosto.setMidLineWidth(2)
         self.tableAgosto.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -629,7 +718,7 @@ class Ui_FinestraIniziale(object):
         self.tabSettembre = QtWidgets.QWidget()
         self.tabSettembre.setObjectName("tabSettembre")
         self.tableSettembre = QtWidgets.QTableWidget(self.tabSettembre)
-        self.tableSettembre.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableSettembre.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableSettembre.setToolTipDuration(3)
         self.tableSettembre.setMidLineWidth(2)
         self.tableSettembre.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -643,7 +732,7 @@ class Ui_FinestraIniziale(object):
         self.tabOttobre = QtWidgets.QWidget()
         self.tabOttobre.setObjectName("tabOttobre")
         self.tableOttobre = QtWidgets.QTableWidget(self.tabOttobre)
-        self.tableOttobre.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableOttobre.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableOttobre.setToolTipDuration(3)
         self.tableOttobre.setMidLineWidth(2)
         self.tableOttobre.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -657,7 +746,7 @@ class Ui_FinestraIniziale(object):
         self.tabNovembre = QtWidgets.QWidget()
         self.tabNovembre.setObjectName("tabNovembre")
         self.tableNovembre = QtWidgets.QTableWidget(self.tabNovembre)
-        self.tableNovembre.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableNovembre.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableNovembre.setFocusPolicy(QtCore.Qt.WheelFocus)
         self.tableNovembre.setToolTipDuration(3)
         self.tableNovembre.setMidLineWidth(2)
@@ -673,7 +762,7 @@ class Ui_FinestraIniziale(object):
         self.tabDicembre = QtWidgets.QWidget()
         self.tabDicembre.setObjectName("tabDicembre")
         self.tableDicembre = QtWidgets.QTableWidget(self.tabDicembre)
-        self.tableDicembre.setGeometry(QtCore.QRect(10, 10, 1235, 580))
+        self.tableDicembre.setGeometry(QtCore.QRect(10, 10, 1236, 580))
         self.tableDicembre.setToolTipDuration(3)
         self.tableDicembre.setMidLineWidth(2)
         self.tableDicembre.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -728,7 +817,7 @@ class Ui_FinestraIniziale(object):
         self.btnUpdate.setIcon(icon)
         self.btnUpdate.setIconSize(QtCore.QSize(25, 25))
         self.btnUpdate.setObjectName("btnUpdate")
-        self.btnUpdate.clicked.connect(lambda: self.loadFatture())
+        self.btnUpdate.clicked.connect(lambda: self.update())
 
         self.valoreSaldoIniziale = QtWidgets.QLabel(self.centralwidget)
         self.valoreSaldoIniziale.setGeometry(QtCore.QRect(750, 660, 151, 21))
@@ -783,6 +872,10 @@ class Ui_FinestraIniziale(object):
         self.actionSaldo_Fine_Anno_2 = QtWidgets.QAction(FinestraIniziale)
         self.actionSaldo_Fine_Anno_2.setObjectName("actionSaldo_Fine_Anno_2")
 
+        self.actionEvidenziatore = QtWidgets.QAction(FinestraIniziale)
+        self.actionEvidenziatore.setObjectName("actionEvidenziatore")
+        self.actionEvidenziatore.triggered.connect(lambda: self.apriEditEvidenz())
+
         self.actionPer_Anno = QtWidgets.QAction(FinestraIniziale)
         self.actionPer_Anno.setObjectName("actionPer_Anno")
 
@@ -791,7 +884,7 @@ class Ui_FinestraIniziale(object):
 
         self.actionAggiorna = QtWidgets.QAction(FinestraIniziale)
         self.actionAggiorna.setObjectName("actionAggiorna")
-        self.actionAggiorna.triggered.connect(lambda: self.loadFatture())
+        self.actionAggiorna.triggered.connect(lambda: self.update())
 
         self.actionEsci = QtWidgets.QAction(FinestraIniziale)
         self.actionEsci.setObjectName("actionEsci")
@@ -809,6 +902,7 @@ class Ui_FinestraIniziale(object):
         self.menuAggiungi.addAction(self.actionFornitore)
         self.menuAggiungi.addAction(self.actionSaldo_Fine_Anno)
         self.menuAggiungi.addAction(self.actionSaldo_Fine_Anno_2)
+        self.menuAggiungi.addAction(self.actionEvidenziatore)
 
         self.menuStatistiche.addAction(self.actionPer_Anno)
         self.menuStatistiche.addAction(self.actionPer_Mese)
@@ -827,6 +921,9 @@ class Ui_FinestraIniziale(object):
             self.tableFebbraio.setColumnWidth(larghezze, width_colonne[larghezze])
             self.tableFebbraio.verticalHeader().setVisible(False)
             self.tableFebbraio.verticalHeader().setDefaultSectionSize(20)
+            #self.tableFebbraio.setStyleSheet('border: 0px solid black; gridline-color: black;')
+            self.tableFebbraio.setGridStyle(QtCore.Qt.SolidLine)
+            self.tableFebbraio.setAlternatingRowColors(0)
             self.tableMarzo.setColumnWidth(larghezze, width_colonne[larghezze])
             self.tableMarzo.verticalHeader().setVisible(False)
             self.tableMarzo.verticalHeader().setDefaultSectionSize(20)
@@ -932,11 +1029,15 @@ class Ui_FinestraIniziale(object):
         self.actionFornitore.setText(_translate("FinestraIniziale", "Fornitore"))
         self.actionSaldo_Fine_Anno.setText(_translate("FinestraIniziale", "Banca"))
         self.actionSaldo_Fine_Anno_2.setText(_translate("FinestraIniziale", "Saldo Fine Anno"))
+        self.actionEvidenziatore.setText(_translate("FinestraIniziale", "Evidenziatore"))
         self.actionPer_Anno.setText(_translate("FinestraIniziale", "Per Anno"))
         self.actionPer_Mese.setText(_translate("FinestraIniziale", "Per Mese"))
         self.actionAggiorna.setText(_translate("FinestraIniziale", "Aggiorna"))
         self.actionEsci.setText(_translate("FinestraIniziale", "Esci"))
         self.actionFind.setText(_translate("FinestraIniziale", "Trova"))
+
+
+        #focusInEvent(self.update())
 
 
 if __name__ == "__main__":
@@ -946,7 +1047,14 @@ if __name__ == "__main__":
     FinestraIniziale = QtWidgets.QMainWindow()
     ui = Ui_FinestraIniziale()
     ui.setupUi(FinestraIniziale)
-    FinestraIniziale.show()
 
+
+    #### IMPOSTA ICONA SU BARRA WINDOWS
+    import ctypes
+    myappid = 'xronos.pyfatture.0.10'  # arbitrary string
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    ####
+
+    FinestraIniziale.show()
     sys.exit(app.exec_())
 
